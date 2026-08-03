@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function hasUserProfile() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return hasUserProfile()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function validProduct(data) {
+      return data.keys().hasAll([
+          "title", "model", "slug", "categorySlug", "brandSlug",
+          "status", "specs", "imageUrls", "updatedAt"
+        ])
+        && data.title is string
+        && data.title.size() > 0
+        && data.model is string
+        && data.model.size() > 0
+        && data.slug is string
+        && data.categorySlug is string
+        && data.brandSlug is string
+        && data.status in ["draft", "published", "archived"]
+        && data.specs is map
+        && data.imageUrls is list;
+    }
+
+    match /users/{userId} {
+      allow get: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == "viewer";
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["displayName", "updatedAt"])
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow get, list: if isAdmin() || resource.data.isActive == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /brands/{brandId} {
+      allow get, list: if isAdmin() || resource.data.isActive == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /specDefinitions/{categoryId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow get: if isAdmin() || resource.data.status == "published";
+      allow list: if isAdmin() || resource.data.status == "published";
+      allow create: if isAdmin() && validProduct(request.resource.data);
+      allow update: if isAdmin() && validProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /articles/{articleId} {
+      allow get, list: if isAdmin() || resource.data.status == "published";
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: speccompare
+    runtime: static
+    plan: free
+    branch: main
+    buildCommand: echo "No build required"
+    staticPublishPath: ./frontend
+    autoDeployTrigger: commit

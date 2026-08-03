@@ -1,0 +1,14 @@
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
+firebase-debug.log*
+.firebase/
+.firebaserc
+.env
+.env.*
+*service-account*.json
+serviceAccountKey.json
+dist/
+coverage/

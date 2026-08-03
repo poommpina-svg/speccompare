@@ -1,0 +1,8 @@
+เปิด Command Prompt ในโฟลเดอร์นี้ แล้วรัน:
+
+python -m http.server 8000
+
+จากนั้นเปิด:
+
+http://localhost:8000/frontend/
+http://localhost:8000/frontend/admin.html

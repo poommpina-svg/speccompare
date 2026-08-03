@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SpecCompare Admin — Firebase</title>
+  <style>
+    :root{--navy:#061426;--blue:#1265e6;--surface:#fff;--bg:#f5f7fb;--line:#dfe5ee;--text:#101828;--muted:#667085;--danger:#c9362b;--radius:16px}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans Thai","Leelawadee UI","Segoe UI",sans-serif}
+    button,input,select,textarea{font:inherit} button{cursor:pointer}
+    .topbar{min-height:68px;padding:0 24px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{font-size:19px;font-weight:850}.brand span{color:#58c9ff}.top-actions{display:flex;align-items:center;gap:10px}
+    .container{width:min(1180px,calc(100% - 28px));margin:28px auto 60px}.grid{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 12px 35px rgba(16,24,40,.07)}
+    .panel-head{padding:20px 22px;border-bottom:1px solid var(--line)}.panel-head h1,.panel-head h2{margin:0;font-size:20px}.panel-head p{margin:6px 0 0;color:var(--muted);font-size:13px}
+    .panel-body{padding:22px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.full{grid-column:1/-1}.field{display:grid;gap:7px}.field label{font-size:13px;font-weight:800}.field small,.note{color:var(--muted);font-size:12px;line-height:1.65}
+    .control{width:100%;min-height:44px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:#fff;outline:0}.control:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(18,101,230,.12)}textarea.control{min-height:105px;resize:vertical}
+    .btn{min-height:42px;padding:0 16px;border:0;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:800}.btn-primary{background:var(--blue);color:#fff}.btn-light{background:#fff;color:var(--text);border:1px solid var(--line)}.btn-danger{background:#fff1f0;color:var(--danger);border:1px solid #fac7c3}.btn:disabled{opacity:.55;cursor:not-allowed}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.status{padding:13px 14px;border-radius:11px;margin-bottom:15px;background:#eef4ff;color:#23436f;font-size:13px}.status[data-kind="error"]{background:#fff0ef;color:#972b25}.status[data-kind="success"]{background:#eaf9f4;color:#08664d}.hidden{display:none!important}
+    .specs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.products{display:grid;gap:10px}.product-row{padding:14px;border:1px solid var(--line);border-radius:12px;display:grid;grid-template-columns:64px 1fr auto;gap:13px;align-items:center}.thumb{width:64px;height:64px;border-radius:10px;object-fit:contain;background:#f1f5fa}.placeholder{display:grid;place-items:center;color:#55708f;font-size:11px}.product-title{font-weight:850}.product-meta{color:var(--muted);font-size:12px;margin-top:4px}.row-actions{display:flex;gap:7px}.row-actions .btn{min-height:36px;padding:0 11px;font-size:12px}
+    .auth-card{max-width:460px;margin:60px auto}.top-link{color:#d6e6ff;text-decoration:none;font-weight:750}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.form-grid,.specs{grid-template-columns:1fr}.product-row{grid-template-columns:55px 1fr}.row-actions{grid-column:1/-1}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Spec<span>Compare</span> Admin</div>
+    <div class="top-actions">
+      <a class="top-link" href="./index.html">กลับหน้าเว็บไซต์</a>
+      <button class="btn btn-light hidden" id="logoutBtn" type="button">ออกจากระบบ</button>
+    </div>
+  </header>
+  <main class="container">
+    <section class="panel auth-card" id="authPanel">
+      <div class="panel-head"><h1>เข้าสู่ระบบผู้ดูแล</h1><p>ใช้บัญชี Email/Password จาก Firebase Authentication</p></div>
+      <form class="panel-body" id="authForm">
+        <div class="status" id="authStatus">กรุณาตั้งค่า Firebase ก่อนเข้าสู่ระบบ</div>
+        <div class="field"><label for="email">อีเมล</label><input class="control" id="email" type="email" autocomplete="username" required></div>
+        <div class="field" style="margin-top:13px"><label for="password">รหัสผ่าน</label><input class="control" id="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:17px" type="submit">เข้าสู่ระบบ</button>
+        <p class="note">บัญชีต้องมีเอกสาร <code>users/{uid}</code> และฟิลด์ <code>role: "admin"</code></p>
+      </form>
+    </section>
+
+    <section class="grid hidden" id="adminPanel">
+      <aside class="panel">
+        <div class="panel-head"><h2>ตั้งค่าฐานข้อมูล</h2><p>เตรียมหมวด แบรนด์ และช่องสเปกเริ่มต้น</p></div>
+        <div class="panel-body">
+          <div class="status" id="adminStatus">พร้อมใช้งาน</div>
+          <button class="btn btn-primary" id="seedBtn" type="button" style="width:100%">สร้างข้อมูลเริ่มต้น</button>
+          <p class="note">กดหลังสร้าง Firestore เพื่อเพิ่ม CPU, GPU, Notebook, RAM, SSD, Mainboard และแบรนด์เริ่มต้น</p>
+          <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
+          <div class="field"><label for="adminSearch">ค้นหาสินค้า</label><input class="control" id="adminSearch" type="search" placeholder="ชื่อ รุ่น ยี่ห้อ"></div>
+        </div>
+      </aside>
+
+      <div>
+        <section class="panel">
+          <div class="panel-head"><h2 id="formTitle">เพิ่มสินค้า</h2><p>ข้อมูลอยู่ใน Firestore และรูปอยู่ใน Cloud Storage</p></div>
+          <form class="panel-body" id="productForm">
+            <input id="productId" type="hidden">
+            <div class="form-grid">
+              <div class="field"><label for="title">ชื่อสินค้า</label><input class="control" id="title" required></div>
+              <div class="field"><label for="model">รุ่น</label><input class="control" id="model" required></div>
+              <div class="field"><label for="slug">Slug ภาษาอังกฤษ</label><input class="control" id="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required></div>
+              <div class="field"><label for="status">สถานะ</label><select class="control" id="status"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></div>
+              <div class="field"><label for="categorySlug">หมวด</label><select class="control" id="categorySlug" required></select></div>
+              <div class="field"><label for="brandSlug">แบรนด์</label><select class="control" id="brandSlug" required></select></div>
+              <div class="field"><label for="price">ราคา</label><input class="control" id="price" type="number" min="0" step="0.01"></div>
+              <div class="field"><label for="warrantyMonths">รับประกัน (เดือน)</label><input class="control" id="warrantyMonths" type="number" min="0" step="1"></div>
+              <div class="field full"><label for="summary">คำอธิบายสั้น</label><textarea class="control" id="summary"></textarea></div>
+              <div class="field full"><label for="description">รายละเอียด</label><textarea class="control" id="description"></textarea></div>
+              <div class="field full"><label for="sourceUrl">แหล่งข้อมูล</label><input class="control" id="sourceUrl" type="url" placeholder="https://..."></div>
+              <div class="field full"><label for="primaryImageUrl">URL รูปสินค้า</label><input class="control" id="primaryImageUrl" type="url" placeholder="https://example.com/product.jpg"><small>วางลิงก์รูปภาพโดยตรง ระบบนี้ไม่รออัปโหลด Firebase Storage จึงบันทึกได้เร็วขึ้น</small></div>
+              <div class="full"><h3 style="font-size:16px">สเปกสินค้า</h3><div class="specs" id="specFields"></div></div>
+            </div>
+            <div class="actions"><button class="btn btn-primary" id="saveBtn" type="submit">บันทึกสินค้า</button><button class="btn btn-light hidden" id="cancelEditBtn" type="button">ยกเลิกการแก้ไข</button></div>
+          </form>
+        </section>
+
+        <section class="panel" style="margin-top:20px">
+          <div class="panel-head"><h2>รายการสินค้า</h2><p>แก้ไขหรือลบข้อมูลที่อยู่ใน Firestore</p></div>
+          <div class="panel-body"><div class="products" id="productList"></div></div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="./js/admin.js"></script>
+</body>
+</html>
