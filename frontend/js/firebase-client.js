@@ -1,12 +1,19 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import {
+  createUserWithEmailAndPassword,
   getAuth,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
-import { firebaseConfig, firebaseConfigured } from "./firebase-config.js";
+import {
+  doc,
+  getFirestore,
+  serverTimestamp,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { firebaseConfig, firebaseConfigured } from "./firebase-config.js?v=20260803-1";
 
 let app = null;
 let auth = null;
@@ -32,6 +39,34 @@ export function requireFirebase() {
 export async function loginWithEmail(email, password) {
   const services = requireFirebase();
   return signInWithEmailAndPassword(services.auth, email, password);
+}
+
+export async function registerWithEmail(displayName, email, password) {
+  const services = requireFirebase();
+  const credential = await createUserWithEmailAndPassword(
+    services.auth,
+    email,
+    password
+  );
+
+  const cleanName = String(displayName || "").trim();
+  if (cleanName) {
+    await updateProfile(credential.user, { displayName: cleanName });
+  }
+
+  await setDoc(
+    doc(services.db, "users", credential.user.uid),
+    {
+      displayName: cleanName,
+      email: credential.user.email || email,
+      role: "viewer",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return credential;
 }
 
 export async function logout() {

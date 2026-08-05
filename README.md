@@ -1,51 +1,30 @@
-# SpecCompare — Firebase Firestore Edition
+# SpecCompare — Render + Firebase
 
-เว็บเปรียบเทียบสเปก CPU, GPU, Notebook, RAM, SSD และ Mainboard
+เวอร์ชันนี้ใช้:
 
-## ระบบที่ใช้
+- Render Static Site สำหรับหน้าเว็บ
+- Firebase Authentication สำหรับสมัครสมาชิกและเข้าสู่ระบบด้วยอีเมล/รหัสผ่าน
+- Cloud Firestore สำหรับข้อมูลสมาชิก สินค้า หมวดหมู่ แบรนด์ สเปก และรูปสินค้าที่บีบอัดแล้ว
+- ไม่ใช้ Firebase Storage
 
-- Cloud Firestore
-- Firebase Authentication
-- Cloud Storage for Firebase
-- Firebase Hosting
-- Firebase JavaScript SDK 12.16.0
+## ความสามารถที่แก้แล้ว
 
-## เริ่มต้น
+- สมัครสมาชิกด้วยอีเมลและรหัสผ่าน
+- เข้าสู่ระบบทันทีหลังสมัคร โดยไม่มีขั้นตอนยืนยันอีเมล
+- Admin เลือกรูปสินค้าจากไฟล์ในเครื่อง
+- รูปถูกย่อและบีบอัดก่อนบันทึกในฟิลด์ `imageDataUrl`
+- หน้าแรกอ่านรูปจาก `imageDataUrl` และแสดงสินค้า `published`
+- หน้าแรกไม่ต้องใช้ Composite Index สำหรับการโหลดสินค้าหลัก
 
-อ่าน `FIREBASE-SETUP.md`
+## อัปเดตขึ้น Render
 
-## เปิดในเครื่อง
+1. แตกไฟล์ทับโฟลเดอร์โปรเจกต์เดิม
+2. เปิด `PUSH-RENDER-UPDATE.cmd`
+3. รอ GitHub Push สำเร็จ
+4. Render จะ Auto Deploy จากสาขา `main`
 
-```bash
-python -m http.server 8000
-```
-
-เปิด:
-
-```text
-http://localhost:8000/frontend/
-http://localhost:8000/frontend/admin.html
-```
-
-## ไฟล์สำคัญ
+หน้า Admin:
 
 ```text
-firebase.json
-firestore.rules
-firestore.indexes.json
-storage.rules
-frontend/js/firebase-config.js
-frontend/admin.html
+https://ชื่อเว็บ.onrender.com/admin.html
 ```
-
-## อัปเดต GitHub
-
-ดับเบิลคลิก `PUSH-FIREBASE-UPDATE.cmd`
-
-
-> หมายเหตุ: Cloud Storage ต้องใช้แผน Blaze หากต้องการอัปโหลดรูปจากหน้า Admin
-
-
-## Render-ready edition
-
-ใช้ `render.yaml` หรือดู `RENDER-SETUP.md` หน้า Admin ใช้ URL รูปสินค้าแทนการอัปโหลด Firebase Storage เพื่อหลีกเลี่ยงการค้างระหว่างบันทึก

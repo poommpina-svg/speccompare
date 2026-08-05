@@ -5,7 +5,7 @@ import {
   loginWithEmail,
   logout,
   onAuthStateChanged
-} from "./firebase-client.js";
+} from "./firebase-client.js?v=20260803-1";
 
 import {
   collection,
@@ -38,6 +38,11 @@ const productList = document.getElementById("productList");
 const adminSearch = document.getElementById("adminSearch");
 const cancelEditBtn = document.getElementById("cancelEditBtn");
 const formTitle = document.getElementById("formTitle");
+const productImageInput = document.getElementById("productImage");
+const existingImageDataUrlInput = document.getElementById("existingImageDataUrl");
+const imagePreview = document.getElementById("imagePreview");
+const imagePreviewPlaceholder = document.getElementById("imagePreviewPlaceholder");
+const removeImageBtn = document.getElementById("removeImageBtn");
 
 let currentUser = null;
 let currentRole = null;
@@ -46,6 +51,9 @@ let brands = [];
 let products = [];
 let currentDefinitions = [];
 let unsubscribeProducts = null;
+let pendingImageDataUrl = "";
+let removeCurrentImage = false;
+let imageProcessingPromise = Promise.resolve();
 
 const CATEGORY_SEEDS = [
   { slug:"cpu", name:"CPU", description:"หน่วยประมวลผลกลาง", iconName:"cpu", sortOrder:10 },
@@ -147,6 +155,107 @@ function slugify(value) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+
+function getProductImage(product) {
+  return product?.imageDataUrl
+    || product?.primaryImageUrl
+    || product?.imageUrls?.[0]
+    || "";
+}
+
+function updateImagePreview(source = "") {
+  if (source) {
+    imagePreview.src = source;
+    imagePreview.classList.remove("hidden");
+    imagePreviewPlaceholder.classList.add("hidden");
+    removeImageBtn.classList.remove("hidden");
+    return;
+  }
+
+  imagePreview.removeAttribute("src");
+  imagePreview.classList.add("hidden");
+  imagePreviewPlaceholder.classList.remove("hidden");
+  removeImageBtn.classList.add("hidden");
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("ไม่สามารถอ่านไฟล์รูปภาพนี้ได้"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function compressProductImage(file) {
+  if (!file) return "";
+  if (!file.type.startsWith("image/")) {
+    throw new Error("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    throw new Error("ไฟล์รูปใหญ่เกิน 12 MB");
+  }
+
+  const source = await loadImageFromFile(file);
+  let maxDimension = 720;
+  let result = "";
+
+  for (let attempt = 0; attempt < 7; attempt += 1) {
+    const scale = Math.min(1, maxDimension / Math.max(source.width, source.height));
+    const width = Math.max(1, Math.round(source.width * scale));
+    const height = Math.max(1, Math.round(source.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("เบราว์เซอร์ไม่รองรับการย่อรูป");
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(source, 0, 0, width, height);
+
+    const quality = Math.max(0.48, 0.84 - (attempt * 0.06));
+    result = canvas.toDataURL("image/jpeg", quality);
+
+    if (result.length <= 180000) return result;
+    maxDimension = Math.round(maxDimension * 0.82);
+  }
+
+  if (result.length > 260000) {
+    throw new Error("รูปยังมีขนาดใหญ่เกินไป กรุณาเลือกรูปที่เล็กลง");
+  }
+  return result;
+}
+
+async function handleProductImageChange() {
+  const file = productImageInput.files?.[0];
+  if (!file) return;
+
+  setStatus(adminStatus, "กำลังย่อและบีบอัดรูปสินค้า...");
+  try {
+    pendingImageDataUrl = await compressProductImage(file);
+    removeCurrentImage = false;
+    updateImagePreview(pendingImageDataUrl);
+    setStatus(adminStatus, "เตรียมรูปเรียบร้อย กดบันทึกสินค้าได้", "success");
+  } catch (error) {
+    console.error(error);
+    pendingImageDataUrl = "";
+    productImageInput.value = "";
+    updateImagePreview(existingImageDataUrlInput.value);
+    setStatus(adminStatus, error.message, "error");
+    throw error;
+  }
 }
 
 function toSpecFields(rows) {
@@ -322,7 +431,16 @@ async function saveProduct(event) {
     const model = document.getElementById("model").value.trim();
     const brandSlug = brandSelect.value;
     const brand = brands.find((item) => item.slug === brandSlug);
-    const primaryImageUrl = document.getElementById("primaryImageUrl").value.trim();
+    await imageProcessingPromise;
+
+    const previousImageDataUrl = previous.imageDataUrl || "";
+    const previousExternalUrl = previous.primaryImageUrl || previous.imageUrls?.[0] || "";
+    const imageDataUrl = removeCurrentImage
+      ? ""
+      : (pendingImageDataUrl || previousImageDataUrl);
+    const primaryImageUrl = removeCurrentImage || imageDataUrl
+      ? ""
+      : previousExternalUrl;
     const imageUrls = primaryImageUrl ? [primaryImageUrl] : [];
 
     const data = {
@@ -343,6 +461,7 @@ async function saveProduct(event) {
       specs:readSpecs(),
       imageUrls,
       imagePaths:[],
+      imageDataUrl,
       primaryImageUrl,
       searchKeywords:[
         title.toLowerCase(),
@@ -377,6 +496,11 @@ async function saveProduct(event) {
 function resetForm() {
   productForm.reset();
   document.getElementById("productId").value = "";
+  existingImageDataUrlInput.value = "";
+  pendingImageDataUrl = "";
+  removeCurrentImage = false;
+  imageProcessingPromise = Promise.resolve();
+  updateImagePreview("");
   formTitle.textContent = "เพิ่มสินค้า";
   cancelEditBtn.classList.add("hidden");
   renderSpecFields(categorySelect.value).catch(console.error);
@@ -398,7 +522,13 @@ async function editProduct(productId) {
   document.getElementById("summary").value = product.summary || "";
   document.getElementById("description").value = product.description || "";
   document.getElementById("sourceUrl").value = product.sourceUrl || "";
-  document.getElementById("primaryImageUrl").value = product.primaryImageUrl || "";
+
+  const currentImage = getProductImage(product);
+  existingImageDataUrlInput.value = currentImage;
+  pendingImageDataUrl = "";
+  removeCurrentImage = false;
+  productImageInput.value = "";
+  updateImagePreview(currentImage);
 
   await renderSpecFields(product.categorySlug, product.specs || {});
   formTitle.textContent = `แก้ไข: ${product.title}`;
@@ -430,8 +560,8 @@ function renderProducts() {
   productList.innerHTML = filtered.length
     ? filtered.map((product) => `
       <article class="product-row">
-        ${product.primaryImageUrl
-          ? `<img class="thumb" src="${escapeHtml(product.primaryImageUrl)}" alt="">`
+        ${getProductImage(product)
+          ? `<img class="thumb" src="${escapeHtml(getProductImage(product))}" alt="">`
           : '<div class="thumb placeholder">ไม่มีรูป</div>'}
         <div>
           <div class="product-title">${escapeHtml(product.title)}</div>
@@ -477,6 +607,19 @@ productForm.addEventListener("submit", saveProduct);
 categorySelect.addEventListener("change", () => renderSpecFields(categorySelect.value));
 adminSearch.addEventListener("input", renderProducts);
 cancelEditBtn.addEventListener("click", resetForm);
+
+productImageInput.addEventListener("change", () => {
+  imageProcessingPromise = handleProductImageChange().catch(() => undefined);
+});
+
+removeImageBtn.addEventListener("click", () => {
+  pendingImageDataUrl = "";
+  removeCurrentImage = true;
+  existingImageDataUrlInput.value = "";
+  productImageInput.value = "";
+  updateImagePreview("");
+  setStatus(adminStatus, "ลบรูปออกจากสินค้าแล้ว กดบันทึกเพื่อยืนยัน", "success");
+});
 
 document.getElementById("title").addEventListener("input", (event) => {
   if (!document.getElementById("productId").value) {

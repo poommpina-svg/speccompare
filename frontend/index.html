@@ -1092,6 +1092,13 @@
     }
 
     .modal-body { padding: 22px; }
+    .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;padding:5px;border-radius:13px;background:var(--surface-2)}
+    .auth-tab{min-height:40px;border:0;border-radius:10px;background:transparent;color:var(--ink-500);font-weight:800}
+    .auth-tab.active{background:#fff;color:var(--blue-700);box-shadow:var(--shadow-sm)}
+    .auth-message{margin-bottom:14px;padding:11px 12px;border-radius:11px;background:#eef4ff;color:#23436f;font-size:12px}
+    .auth-message.error{background:#fff0ef;color:#982d26}
+    .auth-message.success{background:#ecfaf5;color:#087052}
+    .hidden{display:none!important}
     .form-group { display: grid; gap: 7px; margin-bottom: 14px; }
     .form-group label { font-size: 13px; font-weight: 800; }
     .form-control {
@@ -1149,8 +1156,8 @@
     .firebase-status[data-kind="success"]{border-color:#bce7d8;background:#ecfaf5;color:#087052}
     .firebase-status[data-kind="warning"],.firebase-status[data-kind="empty"]{border-color:#f0d7a6;background:#fff8e8;color:#805b14}
     .firebase-status[data-kind="error"]{border-color:#f1c2bd;background:#fff0ef;color:#982d26}
-    .product-photo{width:84%;height:84%;object-fit:contain}
-    .comparison-photo{width:68px;height:68px;object-fit:contain}
+    .product-photo{width:84%;height:84%;object-fit:contain;border-radius:12px}
+    .comparison-photo{width:68px;height:68px;object-fit:contain;border-radius:9px}
 
     @media (max-width: 1050px) {
       .nav-links { display: none; }
@@ -1189,7 +1196,7 @@
       .brand-caption { display: none; }
       .brand-logo { width: 40px; height: 40px; }
       .brand-name { font-size: 18px; }
-      .nav-actions .btn-primary { display: none; }
+      .nav-actions .btn-primary { min-height:38px;padding:0 10px;font-size:12px; }
       .hero-wrap { padding-top: 12px; }
       .hero { border-radius: 22px; }
       .hero-grid { padding: 35px 24px 28px; }
@@ -1289,7 +1296,7 @@
 
       <div class="nav-actions">
         <button class="icon-btn" id="notificationBtn" aria-label="แจ้งเตือน"><svg class="icon"><use href="#i-bell"/></svg></button>
-        <button class="btn btn-primary" id="loginBtn"><svg class="icon"><use href="#i-user"/></svg>เข้าสู่ระบบ</button>
+        <button class="btn btn-primary" id="loginBtn"><svg class="icon"><use href="#i-user"/></svg>เข้าสู่ระบบ / สมัครสมาชิก</button>
         <button class="menu-btn" id="menuBtn" aria-label="เปิดเมนู"><svg class="icon"><use href="#i-menu"/></svg></button>
       </div>
     </div>
@@ -1606,20 +1613,35 @@
   <div class="modal-backdrop" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <div class="modal">
       <div class="modal-head">
-        <h3 id="loginTitle">เข้าสู่ระบบผู้ดูแล</h3>
+        <h3 id="loginTitle">สมาชิก SpecCompare</h3>
         <button class="modal-close" id="closeLogin" aria-label="ปิดหน้าต่าง">×</button>
       </div>
       <form class="modal-body" id="loginForm">
+        <div class="auth-tabs" aria-label="เลือกรูปแบบบัญชี">
+          <button class="auth-tab active" id="loginModeBtn" type="button">เข้าสู่ระบบ</button>
+          <button class="auth-tab" id="registerModeBtn" type="button">สมัครสมาชิก</button>
+        </div>
+        <div class="auth-message hidden" id="authMessage"></div>
+        <div class="form-group hidden" id="displayNameGroup">
+          <label for="displayNameInput">ชื่อที่แสดง</label>
+          <input class="form-control" id="displayNameInput" type="text" maxlength="60" autocomplete="name" placeholder="ชื่อสมาชิก" />
+        </div>
         <div class="form-group">
           <label for="emailInput">อีเมล</label>
-          <input class="form-control" id="emailInput" type="email" placeholder="admin@speccompare.local" required />
+          <input class="form-control" id="emailInput" type="email" autocomplete="email" placeholder="name@example.com" required />
         </div>
         <div class="form-group">
           <label for="passwordInput">รหัสผ่าน</label>
-          <input class="form-control" id="passwordInput" type="password" placeholder="กรอกรหัสผ่าน" required />
+          <input class="form-control" id="passwordInput" type="password" minlength="6" autocomplete="current-password" placeholder="อย่างน้อย 6 ตัวอักษร" required />
         </div>
-        <button class="btn btn-primary" type="submit" style="width:100%"><svg class="icon"><use href="#i-lock"/></svg>เข้าสู่ระบบ</button>
-        <p class="modal-note">ใช้ Firebase Authentication และบัญชีผู้ดูแลที่สร้างใน Firebase Console</p>
+        <div class="form-group hidden" id="confirmPasswordGroup">
+          <label for="confirmPasswordInput">ยืนยันรหัสผ่าน</label>
+          <input class="form-control" id="confirmPasswordInput" type="password" minlength="6" autocomplete="new-password" placeholder="กรอกรหัสผ่านอีกครั้ง" />
+        </div>
+        <button class="btn btn-primary" id="authSubmitBtn" type="submit" style="width:100%">
+          <svg class="icon"><use href="#i-lock"/></svg><span id="authSubmitText">เข้าสู่ระบบ</span>
+        </button>
+        <p class="modal-note" id="authModeNote">เข้าสู่ระบบด้วยอีเมลและรหัสผ่าน</p>
       </form>
     </div>
   </div>
@@ -1727,44 +1749,104 @@
       renderCompare();
     });
 
-    // หน้าต่างเข้าสู่ระบบสำหรับต้นแบบ
+    // ระบบสมาชิก Email/Password
     const loginBtn = document.getElementById('loginBtn');
     const loginModal = document.getElementById('loginModal');
     const closeLogin = document.getElementById('closeLogin');
     const loginForm = document.getElementById('loginForm');
+    const loginModeBtn = document.getElementById('loginModeBtn');
+    const registerModeBtn = document.getElementById('registerModeBtn');
+    const displayNameGroup = document.getElementById('displayNameGroup');
+    const confirmPasswordGroup = document.getElementById('confirmPasswordGroup');
+    const displayNameInput = document.getElementById('displayNameInput');
+    const emailInput = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+    const authSubmitBtn = document.getElementById('authSubmitBtn');
+    const authSubmitText = document.getElementById('authSubmitText');
+    const authModeNote = document.getElementById('authModeNote');
+    const authMessage = document.getElementById('authMessage');
+    let authMode = 'login';
+
+    function setAuthMessage(message = '', kind = '') {
+      authMessage.textContent = message;
+      authMessage.className = `auth-message${message ? '' : ' hidden'}${kind ? ` ${kind}` : ''}`;
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      const registering = mode === 'register';
+      loginModeBtn.classList.toggle('active', !registering);
+      registerModeBtn.classList.toggle('active', registering);
+      displayNameGroup.classList.toggle('hidden', !registering);
+      confirmPasswordGroup.classList.toggle('hidden', !registering);
+      displayNameInput.required = registering;
+      confirmPasswordInput.required = registering;
+      passwordInput.autocomplete = registering ? 'new-password' : 'current-password';
+      authSubmitText.textContent = registering ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ';
+      authModeNote.textContent = registering
+        ? 'สมัครด้วยอีเมลและรหัสผ่าน ระบบเข้าสู่ระบบให้ทันทีโดยไม่ส่งอีเมลยืนยัน'
+        : 'เข้าสู่ระบบด้วยอีเมลและรหัสผ่าน';
+      setAuthMessage();
+    }
 
     function openLoginModal() {
+      setAuthMode('login');
       loginModal.classList.add('show');
       document.body.style.overflow = 'hidden';
-      setTimeout(() => document.getElementById('emailInput').focus(), 50);
+      setTimeout(() => emailInput.focus(), 50);
     }
 
     function closeLoginModal() {
       loginModal.classList.remove('show');
       document.body.style.overflow = '';
+      loginForm.reset();
+      setAuthMessage();
     }
 
     loginBtn.addEventListener('click', openLoginModal);
     closeLogin.addEventListener('click', closeLoginModal);
+    loginModeBtn.addEventListener('click', () => setAuthMode('login'));
+    registerModeBtn.addEventListener('click', () => setAuthMode('register'));
     loginModal.addEventListener('click', event => {
       if (event.target === loginModal) closeLoginModal();
     });
 
     loginForm.addEventListener('submit', async event => {
       event.preventDefault();
+      authSubmitBtn.disabled = true;
+      setAuthMessage(authMode === 'register' ? 'กำลังสร้างบัญชี...' : 'กำลังเข้าสู่ระบบ...');
+
       try {
-        if (typeof window.specCompareFirebaseLogin !== 'function') {
-          throw new Error('ยังไม่ได้ตั้งค่า Firebase');
+        if (authMode === 'register') {
+          if (passwordInput.value !== confirmPasswordInput.value) {
+            throw new Error('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
+          }
+          if (typeof window.specCompareFirebaseRegister !== 'function') {
+            throw new Error('ยังไม่ได้ตั้งค่า Firebase');
+          }
+          await window.specCompareFirebaseRegister(
+            displayNameInput.value.trim(),
+            emailInput.value.trim(),
+            passwordInput.value
+          );
+          closeLoginModal();
+          showToast('สมัครสมาชิกสำเร็จ', 'บัญชีพร้อมใช้งานและเข้าสู่ระบบแล้ว');
+        } else {
+          if (typeof window.specCompareFirebaseLogin !== 'function') {
+            throw new Error('ยังไม่ได้ตั้งค่า Firebase');
+          }
+          await window.specCompareFirebaseLogin(
+            emailInput.value.trim(),
+            passwordInput.value
+          );
+          closeLoginModal();
+          showToast('เข้าสู่ระบบสำเร็จ', 'ยินดีต้อนรับกลับสู่ SpecCompare');
         }
-        await window.specCompareFirebaseLogin(
-          document.getElementById('emailInput').value.trim(),
-          document.getElementById('passwordInput').value
-        );
-        closeLoginModal();
-        showToast('เข้าสู่ระบบสำเร็จ', 'เชื่อมต่อ Firebase Authentication แล้ว');
-        loginForm.reset();
       } catch (error) {
-        showToast('เข้าสู่ระบบไม่สำเร็จ', error.message);
+        setAuthMessage(error.message, 'error');
+      } finally {
+        authSubmitBtn.disabled = false;
       }
     });
 
@@ -1804,6 +1886,6 @@
     const initialSection = location.hash.replace('#', '') || 'home';
     setActiveNav(trackedSections.some(section => section.id === initialSection) ? initialSection : 'home');
   </script>
-  <script type="module" src="./js/home-firestore.js"></script>
+  <script type="module" src="./js/home-firestore.js?v=20260803-1"></script>
 </body>
 </html>

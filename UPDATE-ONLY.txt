@@ -1,0 +1,17 @@
+SpecCompare update only
+
+ไฟล์ชุดนี้แก้โปรเจกต์เดิม ไม่สร้าง Firebase Project หรือ Firestore ใหม่
+
+วิธีใช้:
+1. แตก ZIP
+2. คัดลอกไฟล์ทั้งหมดไปทับโฟลเดอร์ SpecCompare เดิม
+3. ดับเบิลคลิก PUSH-RENDER-UPDATE.cmd
+4. รอ Render Deploy เสร็จ
+5. เปิดหน้าเว็บแล้วกด Ctrl+F5
+
+สิ่งที่แก้:
+- สมัครสมาชิก Email/Password
+- ไม่ส่งอีเมลยืนยัน
+- เลือกรูปจากเครื่องในหน้า Admin
+- บีบอัดและเก็บรูปใน Firestore
+- หน้าแรกแสดงรูปและโหลดสินค้า published

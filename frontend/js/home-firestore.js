@@ -4,8 +4,9 @@ import {
   firebaseConfigured,
   loginWithEmail,
   logout,
-  onAuthStateChanged
-} from "./firebase-client.js";
+  onAuthStateChanged,
+  registerWithEmail
+} from "./firebase-client.js?v=20260803-1";
 
 import {
   collection,
@@ -13,7 +14,6 @@ import {
   getDoc,
   getDocs,
   limit,
-  orderBy,
   query,
   where
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
@@ -60,6 +60,19 @@ function categoryIcon(categorySlug) {
   return icons[categorySlug] || "i-box";
 }
 
+function getProductImage(product) {
+  return product?.imageDataUrl
+    || product?.primaryImageUrl
+    || product?.imageUrls?.[0]
+    || "";
+}
+
+function imageMarkup(product, className, fallbackMarkup) {
+  const source = getProductImage(product);
+  if (!source) return fallbackMarkup;
+  return `<img class="${className}" src="${escapeHtml(source)}" alt="${escapeHtml(product.title)}" loading="lazy">`;
+}
+
 function money(value, currency = "THB") {
   const number = Number(value);
   if (!Number.isFinite(number)) return "ไม่ระบุราคา";
@@ -93,15 +106,23 @@ function normalizeProduct(snapshot) {
   };
 }
 
+function timestampMillis(value) {
+  if (value?.toMillis) return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  return 0;
+}
+
 function productCard(product) {
   const tags = Object.values(product.specs || {})
     .slice(0, 3)
     .map((value) => `<span class="spec-tag">${escapeHtml(value)}</span>`)
     .join("");
 
-  const image = product.primaryImageUrl
-    ? `<img class="product-photo" src="${escapeHtml(product.primaryImageUrl)}" alt="${escapeHtml(product.title)}" loading="lazy">`
-    : `<svg class="device-art icon"><use href="#${categoryIcon(product.categorySlug)}"></use></svg>`;
+  const image = imageMarkup(
+    product,
+    "product-photo",
+    `<svg class="device-art icon"><use href="#${categoryIcon(product.categorySlug)}"></use></svg>`
+  );
 
   return `
     <article class="product-card firebase-product-card"
@@ -142,16 +163,20 @@ async function loadProducts() {
 
   try {
     setStatus("loading", "กำลังโหลดสินค้าจาก Cloud Firestore...");
+    grid.innerHTML = "";
     const productsQuery = query(
       collection(db, "products"),
       where("status", "==", "published"),
-      orderBy("updatedAt", "desc"),
-      limit(24)
+      limit(50)
     );
     const snapshot = await getDocs(productsQuery);
-    products = snapshot.docs.map(normalizeProduct);
+    products = snapshot.docs
+      .map(normalizeProduct)
+      .sort((a, b) => timestampMillis(b.updatedAt) - timestampMillis(a.updatedAt))
+      .slice(0, 24);
 
     if (!products.length) {
+      grid.innerHTML = '<div class="firebase-status" data-kind="empty">ยังไม่มีสินค้าที่เผยแพร่ กรุณาเพิ่มสินค้าในหน้า Admin และตั้งสถานะเป็น Published</div>';
       setStatus("empty", "เชื่อม Firestore สำเร็จ แต่ยังไม่มีสินค้าที่เป็น published");
       return;
     }
@@ -162,6 +187,7 @@ async function loadProducts() {
     renderSelected();
   } catch (error) {
     console.error(error);
+    grid.innerHTML = '<div class="firebase-status" data-kind="error">ไม่สามารถโหลดรายการสินค้าได้ กรุณาลองรีเฟรชหน้าเว็บ</div>';
     setStatus("error", `โหลดสินค้าไม่สำเร็จ: ${error.message}`);
   }
 }
@@ -225,10 +251,11 @@ async function renderComparison() {
   const headers = chosen.map((product) => `
     <th>
       <div class="mini-product">
-        ${product.primaryImageUrl
-          ? `<img class="comparison-photo" src="${escapeHtml(product.primaryImageUrl)}" alt="${escapeHtml(product.title)}">`
-          : `<svg class="device-art icon"><use href="#${categoryIcon(product.categorySlug)}"></use></svg>`
-        }
+        ${imageMarkup(
+          product,
+          "comparison-photo",
+          `<svg class="device-art icon"><use href="#${categoryIcon(product.categorySlug)}"></use></svg>`
+        )}
         ${escapeHtml(product.title)}
       </div>
     </th>
@@ -342,12 +369,18 @@ window.specCompareFirebaseLogin = async (email, password) => {
   return credential.user;
 };
 
+window.specCompareFirebaseRegister = async (displayName, email, password) => {
+  const credential = await registerWithEmail(displayName, email, password);
+  return credential.user;
+};
+
 if (auth) {
   onAuthStateChanged(auth, (user) => {
     if (!loginBtn) return;
+    const accountLabel = user?.displayName || user?.email || "สมาชิก";
     loginBtn.innerHTML = user
-      ? '<svg class="icon"><use href="#i-user"></use></svg>ออกจากระบบ'
-      : '<svg class="icon"><use href="#i-user"></use></svg>เข้าสู่ระบบ';
+      ? `<svg class="icon"><use href="#i-user"></use></svg>${escapeHtml(accountLabel)} · ออกจากระบบ`
+      : '<svg class="icon"><use href="#i-user"></use></svg>เข้าสู่ระบบ / สมัครสมาชิก';
     loginBtn.title = user?.email || "";
   });
 
