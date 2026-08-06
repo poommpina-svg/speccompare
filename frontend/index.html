@@ -529,8 +529,18 @@
       border: 1px solid var(--line);
       border-radius: 18px;
       background: #fff;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
       box-shadow: var(--shadow-sm);
       transition: 180ms ease;
+    }
+
+    .category-card.active {
+      color: var(--blue-700);
+      border-color: var(--blue-600);
+      background: var(--surface-3);
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.12);
     }
 
     .category-card:hover {
@@ -778,6 +788,24 @@
 
     .comparison-top h3 { margin: 0; font-size: 21px; }
     .comparison-top p { margin: 4px 0 0; color: var(--ink-500); font-size: 13px; }
+
+    .comparison-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .comparison-actions .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+    }
+
+    .print-document-header,
+    .print-document-footer {
+      display: none;
+    }
 
     .table-wrap { overflow-x: auto; }
     table {
@@ -1227,6 +1255,168 @@
       .dock-sub { display: none; }
       .dock-actions .btn-light { display: none; }
     }
+
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 10mm;
+      }
+
+      html,
+      body {
+        width: 100%;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      body * {
+        visibility: hidden !important;
+      }
+
+      #comparison,
+      #comparison * {
+        visibility: visible !important;
+      }
+
+      #comparison {
+        position: absolute !important;
+        inset: 0 auto auto 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        border: 0 !important;
+      }
+
+      #comparison > .container {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+      }
+
+      #comparison .section-head,
+      #comparison .comparison-actions {
+        display: none !important;
+      }
+
+      #comparison .comparison-card {
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+
+      #comparison .comparison-top {
+        padding: 0 0 5mm !important;
+        border-bottom: 1px solid #8994a3 !important;
+      }
+
+      #comparison .comparison-top h3 {
+        font-size: 16pt !important;
+      }
+
+      #comparison .comparison-top p {
+        color: #444 !important;
+        font-size: 9pt !important;
+      }
+
+      .print-document-header {
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        align-items: end !important;
+        gap: 8mm !important;
+        margin-bottom: 5mm !important;
+        padding-bottom: 4mm !important;
+        border-bottom: 2px solid #0b57d0 !important;
+      }
+
+      .print-brand-name {
+        color: #0b57d0 !important;
+        font-size: 20pt !important;
+        font-weight: 900 !important;
+        line-height: 1.1 !important;
+      }
+
+      .print-document-title {
+        margin-top: 1mm !important;
+        font-size: 11pt !important;
+        font-weight: 800 !important;
+      }
+
+      .print-document-meta {
+        color: #444 !important;
+        font-size: 8.5pt !important;
+        text-align: right !important;
+      }
+
+      #comparison .table-wrap {
+        overflow: visible !important;
+      }
+
+      #comparison table {
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+      }
+
+      #comparison th,
+      #comparison td {
+        padding: 3mm 2.5mm !important;
+        border: 1px solid #b8c0cc !important;
+        color: #111 !important;
+        background: #fff !important;
+        font-size: 8.5pt !important;
+        line-height: 1.35 !important;
+        overflow-wrap: anywhere !important;
+      }
+
+      #comparison th:first-child,
+      #comparison td:first-child {
+        width: 38mm !important;
+        background: #edf3fb !important;
+        font-weight: 800 !important;
+      }
+
+      #comparison thead th {
+        background: #f4f7fb !important;
+      }
+
+      #comparison tr,
+      #comparison th,
+      #comparison td,
+      #comparison .mini-product {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      #comparison .comparison-photo,
+      #comparison .mini-product .device-art {
+        width: 18mm !important;
+        height: 18mm !important;
+        object-fit: contain !important;
+      }
+
+      #comparison .winner {
+        color: #08755a !important;
+      }
+
+      .print-document-footer {
+        display: flex !important;
+        justify-content: space-between !important;
+        gap: 8mm !important;
+        margin-top: 4mm !important;
+        padding-top: 3mm !important;
+        border-top: 1px solid #8994a3 !important;
+        color: #555 !important;
+        font-size: 7.5pt !important;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1886,6 +2076,6 @@
     const initialSection = location.hash.replace('#', '') || 'home';
     setActiveNav(trackedSections.some(section => section.id === initialSection) ? initialSection : 'home');
   </script>
-  <script type="module" src="./js/home-firestore.js?v=20260803-1"></script>
+  <script type="module" src="./js/home-firestore.js?v=20260806-print3"></script>
 </body>
 </html>

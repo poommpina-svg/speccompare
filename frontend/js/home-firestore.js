@@ -6,7 +6,7 @@ import {
   logout,
   onAuthStateChanged,
   registerWithEmail
-} from "./firebase-client.js?v=20260803-1";
+} from "./firebase-client.js?v=20260805-2";
 
 import {
   collection,
@@ -27,8 +27,10 @@ const compareNames = document.getElementById("compareNames");
 const clearCompare = document.getElementById("clearCompare");
 const comparisonCard = document.querySelector("#comparison .comparison-card");
 const loginBtn = document.getElementById("loginBtn");
+const categoryGrid = document.querySelector("#categories .category-grid");
 
 let products = [];
+let activeCategory = "";
 const selected = new Map();
 
 function notify(title, message) {
@@ -52,10 +54,25 @@ function categoryIcon(categorySlug) {
   const icons = {
     cpu: "i-cpu",
     gpu: "i-gpu",
-    notebook: "i-laptop",
+    mainboard: "i-board",
     ram: "i-ram",
     ssd: "i-ssd",
-    mainboard: "i-board"
+    hdd: "i-ssd",
+    notebook: "i-laptop",
+    monitor: "i-monitor",
+    case: "i-desktop",
+    psu: "i-box",
+    "cpu-cooler": "i-box",
+    "liquid-cooler": "i-box",
+    keyboard: "i-box",
+    mouse: "i-box",
+    headset: "i-box",
+    speaker: "i-box",
+    webcam: "i-monitor",
+    microphone: "i-box",
+    ups: "i-box",
+    network: "i-box",
+    accessories: "i-box"
   };
   return icons[categorySlug] || "i-box";
 }
@@ -127,6 +144,7 @@ function productCard(product) {
   return `
     <article class="product-card firebase-product-card"
       data-id="${escapeHtml(product.id)}"
+      data-category="${escapeHtml(product.categorySlug || "")}"
       data-search="${escapeHtml(product.searchText)}">
       <div class="product-media">
         <span class="product-badge">${escapeHtml((product.categorySlug || "สินค้า").toUpperCase())}</span>
@@ -178,6 +196,7 @@ async function loadProducts() {
     if (!products.length) {
       grid.innerHTML = '<div class="firebase-status" data-kind="empty">ยังไม่มีสินค้าที่เผยแพร่ กรุณาเพิ่มสินค้าในหน้า Admin และตั้งสถานะเป็น Published</div>';
       setStatus("empty", "เชื่อม Firestore สำเร็จ แต่ยังไม่มีสินค้าที่เป็น published");
+      await loadCategories();
       return;
     }
 
@@ -185,6 +204,7 @@ async function loadProducts() {
     setStatus("success", `โหลดสินค้า ${products.length} รายการจาก Cloud Firestore สำเร็จ`);
     selected.clear();
     renderSelected();
+    await loadCategories();
   } catch (error) {
     console.error(error);
     grid.innerHTML = '<div class="firebase-status" data-kind="error">ไม่สามารถโหลดรายการสินค้าได้ กรุณาลองรีเฟรชหน้าเว็บ</div>';
@@ -195,8 +215,61 @@ async function loadProducts() {
 function filterProducts() {
   const keyword = (searchInput?.value || "").trim().toLowerCase();
   document.querySelectorAll(".firebase-product-card").forEach((card) => {
-    card.hidden = !card.dataset.search.includes(keyword);
+    const matchesKeyword = card.dataset.search.includes(keyword);
+    const matchesCategory = !activeCategory || card.dataset.category === activeCategory;
+    card.hidden = !(matchesKeyword && matchesCategory);
   });
+}
+
+async function loadCategories() {
+  if (!firebaseConfigured || !db || !categoryGrid) return;
+
+  try {
+    const categoriesQuery = query(
+      collection(db, "categories"),
+      where("isActive", "==", true)
+    );
+    const snapshot = await getDocs(categoriesQuery);
+    const categories = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }))
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    if (!categories.length) return;
+
+    const counts = products.reduce((result, product) => {
+      result[product.categorySlug] = (result[product.categorySlug] || 0) + 1;
+      return result;
+    }, {});
+
+    categoryGrid.innerHTML = categories.map((category) => `
+      <button class="category-card firebase-category-card" type="button"
+        data-category="${escapeHtml(category.slug)}">
+        <span class="category-icon">
+          <svg class="icon"><use href="#${categoryIcon(category.slug)}"></use></svg>
+        </span>
+        <div class="category-name">${escapeHtml(category.name)}</div>
+        <div class="category-count">${counts[category.slug] || 0} สินค้า</div>
+      </button>
+    `).join("");
+
+    categoryGrid.addEventListener("click", (event) => {
+      const card = event.target.closest(".firebase-category-card");
+      if (!card) return;
+
+      activeCategory = activeCategory === card.dataset.category
+        ? ""
+        : card.dataset.category;
+
+      categoryGrid.querySelectorAll(".firebase-category-card").forEach((item) => {
+        item.classList.toggle("active", item.dataset.category === activeCategory);
+      });
+
+      filterProducts();
+      document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+    });
+  } catch (error) {
+    console.error("โหลดหมวดหมู่ไม่สำเร็จ", error);
+  }
 }
 
 async function getSpecDefinitions(categorySlug) {
@@ -209,6 +282,49 @@ function formatSpec(value, unit) {
   if (value === undefined || value === null || value === "") return "—";
   if (typeof value === "boolean") return value ? "มี" : "ไม่มี";
   return `${escapeHtml(value)}${unit ? ` ${escapeHtml(unit)}` : ""}`;
+}
+
+function printDateTime() {
+  return new Intl.DateTimeFormat("th-TH", {
+    dateStyle: "long",
+    timeStyle: "short"
+  }).format(new Date());
+}
+
+async function printComparisonDocument() {
+  if (selected.size < 2) {
+    notify("ยังพิมพ์ไม่ได้", "กรุณาเลือกสินค้าอย่างน้อย 2 รุ่น");
+    return;
+  }
+
+  const generatedAt = document.getElementById("printGeneratedAt");
+  const printSource = document.getElementById("printSource");
+  if (generatedAt) generatedAt.textContent = `จัดทำเมื่อ ${printDateTime()}`;
+  if (printSource) printSource.textContent = `แหล่งข้อมูล: ${window.location.hostname}`;
+
+  const images = [...comparisonCard.querySelectorAll("img")];
+  await Promise.all(images.map((image) => {
+    image.loading = "eager";
+    if (image.complete) return Promise.resolve();
+    return new Promise((resolve) => {
+      const finish = () => resolve();
+      image.addEventListener("load", finish, { once: true });
+      image.addEventListener("error", finish, { once: true });
+      window.setTimeout(finish, 1500);
+    });
+  }));
+
+  const previousTitle = document.title;
+  const firstProduct = selected.values().next().value;
+  const category = firstProduct?.categorySlug || "products";
+  const datePart = new Date().toISOString().slice(0, 10);
+  document.title = `SpecCompare-${category}-${datePart}`;
+
+  window.addEventListener("afterprint", () => {
+    document.title = previousTitle;
+  }, { once: true });
+
+  window.print();
 }
 
 function bestProductIds(field, chosen) {
@@ -239,8 +355,11 @@ async function renderComparison() {
 
   const chosen = [...selected.values()];
   const definitions = await getSpecDefinitions(chosen[0].categorySlug);
-  const fields = definitions.length
-    ? definitions.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+  const comparableDefinitions = definitions.filter(
+    (field) => field.comparable !== false && field.enabled !== false
+  );
+  const fields = comparableDefinitions.length
+    ? comparableDefinitions.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     : Object.keys(chosen[0].specs || {}).map((code, index) => ({
         code,
         name: code,
@@ -288,14 +407,29 @@ async function renderComparison() {
   }).join("");
 
   comparisonCard.innerHTML = `
+    <div class="print-document-header">
+      <div>
+        <div class="print-brand-name">SpecCompare</div>
+        <div class="print-document-title">เอกสารเปรียบเทียบข้อมูลสินค้า</div>
+      </div>
+      <div class="print-document-meta" id="printGeneratedAt">จัดทำเมื่อ ${escapeHtml(printDateTime())}</div>
+    </div>
     <div class="comparison-top">
       <div>
         <h3>เปรียบเทียบ ${escapeHtml(chosen[0].categorySlug.toUpperCase())} จำนวน ${chosen.length} รุ่น</h3>
         <p>ข้อมูลจาก Cloud Firestore</p>
       </div>
-      <button class="btn btn-light" id="firebaseClearComparison" type="button">
-        <svg class="icon"><use href="#i-refresh"></use></svg>ล้างรายการ
-      </button>
+      <div class="comparison-actions">
+        <button class="btn btn-primary" id="printComparison" type="button"
+          ${chosen.length < 2 ? "disabled" : ""}
+          title="${chosen.length < 2 ? "เลือกสินค้าอย่างน้อย 2 รุ่น" : "เปิดหน้าต่างพิมพ์หรือบันทึกเป็น PDF"}">
+          <svg class="icon"><use href="#i-article"></use></svg>
+          พิมพ์ / บันทึก PDF
+        </button>
+        <button class="btn btn-light" id="firebaseClearComparison" type="button">
+          <svg class="icon"><use href="#i-refresh"></use></svg>ล้างรายการ
+        </button>
+      </div>
     </div>
     <div class="table-wrap">
       <table>
@@ -303,7 +437,18 @@ async function renderComparison() {
         <tbody>${rows}<tr><td>ราคา</td>${priceCells}</tr></tbody>
       </table>
     </div>
+    <div class="print-document-footer">
+      <span>เอกสารสร้างจากระบบ SpecCompare</span>
+      <span id="printSource">แหล่งข้อมูล: ${escapeHtml(window.location.hostname)}</span>
+    </div>
   `;
+
+  document.getElementById("printComparison")?.addEventListener("click", () => {
+    printComparisonDocument().catch((error) => {
+      console.error(error);
+      notify("พิมพ์ไม่สำเร็จ", error.message);
+    });
+  });
 
   document.getElementById("firebaseClearComparison")?.addEventListener("click", () => {
     selected.clear();
